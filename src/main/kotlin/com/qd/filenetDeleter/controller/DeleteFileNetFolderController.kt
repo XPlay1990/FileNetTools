@@ -18,4 +18,10 @@ class DeleteFileNetFolderController(
     ) {
         fileNetP8Service.deleteFileNetFolder(folderPath)
     }
+    @PostMapping
+    fun deleteFolderRecursiveFromSearch(
+        @RequestBody searchSQL: String
+    ) {
+        fileNetP8Service.deleteFileNetFolderViaSearch(searchSQL)
+    }
 }

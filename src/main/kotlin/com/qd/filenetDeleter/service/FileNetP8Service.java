@@ -3,8 +3,11 @@ package com.qd.filenetDeleter.service;
 import com.filenet.api.authentication.SubjectCredentials;
 import com.filenet.api.collection.DocumentSet;
 import com.filenet.api.collection.FolderSet;
+import com.filenet.api.collection.RepositoryRowSet;
 import com.filenet.api.core.*;
 import com.filenet.api.property.PropertyFilter;
+import com.filenet.api.query.SearchSQL;
+import com.filenet.api.query.SearchScope;
 import com.filenet.api.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,14 @@ public class FileNetP8Service {
         subjectCredentials.doAs(folderDeleter);
     }
 
+    public void deleteFileNetFolderViaSearch(String queryString) {
+        Subject subject = getSubject();
+
+        SubjectCredentials subjectCredentials = new SubjectCredentials(subject);
+        FolderDeleterViaSearch folderDeleterViaSearch = new FolderDeleterViaSearch(queryString);
+        subjectCredentials.doAs(folderDeleterViaSearch);
+    }
+
     private Subject getSubject() {
         log.debug("Authenticating in P8");
         connection = Factory.Connection.getConnection(baseUrl);
@@ -53,6 +64,27 @@ public class FileNetP8Service {
         EntireNetwork entireNetwork = Factory.EntireNetwork.fetchInstance(connection, emptyPropertyFilter);
         Domain domain = entireNetwork.get_LocalDomain();
         objectStore = Factory.ObjectStore.fetchInstance(domain, osName, emptyPropertyFilter);
+    }
+
+
+    private void deleteSubFoldersRecursively(Folder folder) {
+        FolderSet subFolders = folder.get_SubFolders();
+        Iterator iterator = subFolders.iterator();
+        while (iterator.hasNext()) {
+            Folder subFolder = (Folder) iterator.next();
+            deleteSubFoldersRecursively(subFolder);
+            deleteDocuments(subFolder);
+            subFolder.delete();
+        }
+    }
+
+    private void deleteDocuments(Folder subFolder) {
+        DocumentSet containedDocuments = subFolder.get_ContainedDocuments();
+        Iterator documentIterator = containedDocuments.iterator();
+        while (documentIterator.hasNext()) {
+            Document document = (Document) documentIterator.next();
+            document.delete();
+        }
     }
 
     @RequiredArgsConstructor
@@ -71,25 +103,29 @@ public class FileNetP8Service {
 
             return null;
         }
+    }
 
-        private void deleteSubFoldersRecursively(Folder folder) {
-            FolderSet subFolders = folder.get_SubFolders();
-            Iterator iterator = subFolders.iterator();
+    @RequiredArgsConstructor
+    private class FolderDeleterViaSearch implements PrivilegedExceptionAction<Object> {
+        private final String queryString;
+
+        @Override
+        public Object run() {
+            connectToOS(objectStore.get_SymbolicName());
+
+            SearchSQL searchSQL = new SearchSQL(queryString);
+            SearchScope searchScope = new SearchScope(objectStore);
+            RepositoryRowSet repositoryRowSet = searchScope.fetchRows(searchSQL, null, null, true);
+            Iterator iterator = repositoryRowSet.iterator();
             while (iterator.hasNext()) {
-                Folder subFolder = (Folder) iterator.next();
-                deleteSubFoldersRecursively(subFolder);
-                deleteDocuments(subFolder);
-                subFolder.delete();
+                Folder foundFolder = (Folder) iterator.next();
+                deleteSubFoldersRecursively(foundFolder);
+                deleteDocuments(foundFolder);
+                foundFolder.delete();
             }
+
+            return null;
         }
 
-        private void deleteDocuments(Folder subFolder) {
-            DocumentSet containedDocuments = subFolder.get_ContainedDocuments();
-            Iterator documentIterator = containedDocuments.iterator();
-            while (documentIterator.hasNext()) {
-                Document document = (Document) documentIterator.next();
-                document.delete();
-            }
-        }
     }
 }
