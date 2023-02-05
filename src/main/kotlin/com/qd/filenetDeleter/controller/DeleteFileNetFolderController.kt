@@ -14,14 +14,21 @@ class DeleteFileNetFolderController(
 ) {
     @PostMapping
     fun deleteFolderRecursive(
-        @RequestBody folderPath: String
+        @RequestBody deleteRequestPath: DeleteRequestPath
     ) {
-        fileNetP8Service.deleteFileNetFolder(folderPath)
+        fileNetP8Service.deleteFileNetFolder(deleteRequestPath)
     }
+
     @PostMapping
-    fun deleteFolderRecursiveFromSearch(
-        @RequestBody searchSQL: String
-    ) {
-        fileNetP8Service.deleteFileNetFolderViaSearch(searchSQL)
+    fun deleteFolderRecursiveFromSearch(@RequestBody deleteRequestSQL: DeleteRequestSQL) {
+        fileNetP8Service.deleteFileNetFolderViaSearch(deleteRequestSQL)
     }
 }
+
+class DeleteRequestPath(
+    val objectStoreName: String, val path: String
+)
+
+class DeleteRequestSQL(
+    val objectStoreName: String, val searchSQL: String
+)
