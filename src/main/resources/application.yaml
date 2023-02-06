@@ -1,0 +1,9 @@
+server:
+  port: 9020
+  http2:
+    enabled: true
+  compression:
+    enabled: true
+    min-response-size: 1024
+  servlet:
+    contextPath: /api/v1

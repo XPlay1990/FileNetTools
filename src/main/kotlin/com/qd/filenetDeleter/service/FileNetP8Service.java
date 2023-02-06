@@ -3,16 +3,19 @@ package com.qd.filenetDeleter.service;
 import com.filenet.api.authentication.SubjectCredentials;
 import com.filenet.api.collection.DocumentSet;
 import com.filenet.api.collection.FolderSet;
-import com.filenet.api.collection.RepositoryRowSet;
+import com.filenet.api.collection.IndependentObjectSet;
+import com.filenet.api.constants.RefreshMode;
 import com.filenet.api.core.*;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.query.SearchSQL;
 import com.filenet.api.query.SearchScope;
 import com.filenet.api.util.UserContext;
-import com.qd.filenetDeleter.controller.DeleteRequestPath;
-import com.qd.filenetDeleter.controller.DeleteRequestSQL;
+import com.qd.filenetDeleter.util.DeleteRequestPath;
+import com.qd.filenetDeleter.util.DeleteRequestSQL;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +28,8 @@ import java.util.Iterator;
 @Component
 public class FileNetP8Service {
 
+    private final Logger logger = LoggerFactory.getLogger(FileNetP8Service.class);
+
     @Value("${filenet.username}")
     private String username;
     @Value("${filenet.password}")
@@ -36,7 +41,7 @@ public class FileNetP8Service {
     private final PropertyFilter emptyPropertyFilter = new PropertyFilter();
 
     public void deleteFileNetFolder(DeleteRequestPath deleteRequestPath) throws IllegalAccessException {
-        String folderPath = deleteRequestPath.getPath();
+        String folderPath = deleteRequestPath.path();
         if (folderPath.equals("/") || folderPath.equals("/Dossier")) {
             throw new IllegalAccessException("Cannot Delete starting from " + folderPath);
         }
@@ -44,15 +49,16 @@ public class FileNetP8Service {
         Subject subject = getSubject();
 
         SubjectCredentials subjectCredentials = new SubjectCredentials(subject);
-        FolderDeleter folderDeleter = new FolderDeleter(deleteRequestPath.getObjectStoreName(), deleteRequestPath.getPath());
+        FolderDeleter folderDeleter = new FolderDeleter(deleteRequestPath.objectStoreName(), deleteRequestPath.path());
         subjectCredentials.doAs(folderDeleter);
     }
 
     public void deleteFileNetFolderViaSearch(DeleteRequestSQL deleteRequestSQL) {
+        logger.info("Deleting folders via search");
         Subject subject = getSubject();
 
         SubjectCredentials subjectCredentials = new SubjectCredentials(subject);
-        FolderDeleterViaSearch folderDeleterViaSearch = new FolderDeleterViaSearch(deleteRequestSQL.getObjectStoreName(), deleteRequestSQL.getSearchSQL());
+        FolderDeleterViaSearch folderDeleterViaSearch = new FolderDeleterViaSearch(deleteRequestSQL.objectStoreName(), deleteRequestSQL.searchSQL());
         subjectCredentials.doAs(folderDeleterViaSearch);
     }
 
@@ -76,7 +82,9 @@ public class FileNetP8Service {
             Folder subFolder = (Folder) iterator.next();
             deleteSubFoldersRecursively(subFolder);
             deleteDocuments(subFolder);
+            logger.info("Deleting folder {}", subFolder.get_PathName());
             subFolder.delete();
+            subFolder.save(RefreshMode.REFRESH);
         }
     }
 
@@ -85,7 +93,9 @@ public class FileNetP8Service {
         Iterator documentIterator = containedDocuments.iterator();
         while (documentIterator.hasNext()) {
             Document document = (Document) documentIterator.next();
+            logger.info("Deleting document {}", document.get_Name());
             document.delete();
+            document.save(RefreshMode.REFRESH);
         }
     }
 
@@ -102,8 +112,10 @@ public class FileNetP8Service {
             Folder startFolder = Factory.Folder.fetchInstance(objectStore, folderPath, null);
 
             deleteSubFoldersRecursively(startFolder);
-//            deleteDocuments(startFolder);
+            deleteDocuments(startFolder);
+            logger.info("Deleting folder {}", startFolder.get_PathName());
             startFolder.delete();
+            startFolder.save(RefreshMode.REFRESH);
 
             return null;
         }
@@ -118,15 +130,18 @@ public class FileNetP8Service {
         public Object run() {
             ObjectStore objectStore = connectToOS(objectStoreName);
 
+            logger.info("Searching for folders");
             SearchSQL searchSQL = new SearchSQL(queryString);
             SearchScope searchScope = new SearchScope(objectStore);
-            RepositoryRowSet repositoryRowSet = searchScope.fetchRows(searchSQL, null, null, true);
+            IndependentObjectSet repositoryRowSet = searchScope.fetchObjects(searchSQL, null, null, true);
             Iterator iterator = repositoryRowSet.iterator();
             while (iterator.hasNext()) {
-                Folder foundFolder = (Folder) iterator.next();
-                deleteSubFoldersRecursively(foundFolder);
-//                deleteDocuments(foundFolder);
-                foundFolder.delete();
+                Folder startFolder = (Folder) iterator.next();
+                deleteSubFoldersRecursively(startFolder);
+                logger.info("Deleting folder {}", startFolder.get_PathName());
+                deleteDocuments(startFolder);
+                startFolder.delete();
+                startFolder.save(RefreshMode.REFRESH);
             }
 
             return null;
