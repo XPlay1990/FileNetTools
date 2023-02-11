@@ -68,34 +68,27 @@ public class FileNetP8Service {
         return UserContext.createSubject(connection, username, password, null);
     }
 
-    private ObjectStore connectToOS(String osName) {
-        EntireNetwork entireNetwork = Factory.EntireNetwork.fetchInstance(connection, emptyPropertyFilter);
-        Domain domain = entireNetwork.get_LocalDomain();
-        return Factory.ObjectStore.fetchInstance(domain, osName, emptyPropertyFilter);
-    }
-
-
-    private void deleteSubFoldersRecursively(Folder folder) {
+    private void deleteSubFoldersRecursively(Folder folder, UpdatingBatch updatingBatchInstance) {
         FolderSet subFolders = folder.get_SubFolders();
         Iterator iterator = subFolders.iterator();
         while (iterator.hasNext()) {
             Folder subFolder = (Folder) iterator.next();
-            deleteSubFoldersRecursively(subFolder);
-            deleteDocuments(subFolder);
-            logger.info("Deleting folder {}", subFolder.get_PathName());
+            deleteSubFoldersRecursively(subFolder, updatingBatchInstance);
+            deleteDocuments(subFolder, updatingBatchInstance);
+            logger.info("Adding folder {} to delete", subFolder.get_PathName());
             subFolder.delete();
-            subFolder.save(RefreshMode.REFRESH);
+            updatingBatchInstance.add(subFolder, null);
         }
     }
 
-    private void deleteDocuments(Folder subFolder) {
+    private void deleteDocuments(Folder subFolder, UpdatingBatch updatingBatchInstance) {
         DocumentSet containedDocuments = subFolder.get_ContainedDocuments();
         Iterator documentIterator = containedDocuments.iterator();
         while (documentIterator.hasNext()) {
             Document document = (Document) documentIterator.next();
-            logger.info("Deleting document {}", document.get_Name());
+            logger.info("Adding document {} to delete", document.get_Name());
             document.delete();
-            document.save(RefreshMode.REFRESH);
+            updatingBatchInstance.add(document, null);
         }
     }
 
@@ -107,15 +100,22 @@ public class FileNetP8Service {
 
         @Override
         public Object run() {
-            ObjectStore objectStore = connectToOS(objectStoreName);
+            EntireNetwork entireNetwork = Factory.EntireNetwork.fetchInstance(connection, emptyPropertyFilter);
+            Domain domain = entireNetwork.get_LocalDomain();
+            UpdatingBatch updatingBatchInstance = UpdatingBatch.createUpdatingBatchInstance(domain, RefreshMode.REFRESH);
+            ObjectStore objectStore = Factory.ObjectStore.fetchInstance(domain, objectStoreName, emptyPropertyFilter);
 
             Folder startFolder = Factory.Folder.fetchInstance(objectStore, folderPath, null);
 
-            deleteSubFoldersRecursively(startFolder);
-            deleteDocuments(startFolder);
-            logger.info("Deleting folder {}", startFolder.get_PathName());
+            deleteSubFoldersRecursively(startFolder, updatingBatchInstance);
+            deleteDocuments(startFolder, updatingBatchInstance);
+
+            logger.info("Adding folder {} to delete", startFolder.get_PathName());
             startFolder.delete();
-            startFolder.save(RefreshMode.REFRESH);
+            updatingBatchInstance.add(startFolder, null);
+
+            logger.info("Executing batch update");
+            updatingBatchInstance.updateBatch();
 
             return null;
         }
@@ -128,7 +128,10 @@ public class FileNetP8Service {
 
         @Override
         public Object run() {
-            ObjectStore objectStore = connectToOS(objectStoreName);
+            EntireNetwork entireNetwork = Factory.EntireNetwork.fetchInstance(connection, emptyPropertyFilter);
+            Domain domain = entireNetwork.get_LocalDomain();
+            UpdatingBatch updatingBatchInstance = UpdatingBatch.createUpdatingBatchInstance(domain, RefreshMode.REFRESH);
+            ObjectStore objectStore = Factory.ObjectStore.fetchInstance(domain, objectStoreName, emptyPropertyFilter);
 
             logger.info("Searching for folders");
             SearchSQL searchSQL = new SearchSQL(queryString);
@@ -137,12 +140,16 @@ public class FileNetP8Service {
             Iterator iterator = repositoryRowSet.iterator();
             while (iterator.hasNext()) {
                 Folder startFolder = (Folder) iterator.next();
-                deleteSubFoldersRecursively(startFolder);
-                logger.info("Deleting folder {}", startFolder.get_PathName());
-                deleteDocuments(startFolder);
+                deleteSubFoldersRecursively(startFolder, updatingBatchInstance);
+                deleteDocuments(startFolder, updatingBatchInstance);
+
+                logger.info("Adding Folder {} to delete", startFolder.get_PathName());
                 startFolder.delete();
-                startFolder.save(RefreshMode.REFRESH);
+                updatingBatchInstance.add(startFolder, null);
             }
+
+            logger.info("Executing batch update");
+            updatingBatchInstance.updateBatch();
 
             return null;
         }
