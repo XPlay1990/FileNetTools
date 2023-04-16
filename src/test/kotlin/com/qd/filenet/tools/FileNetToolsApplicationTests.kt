@@ -1,10 +1,10 @@
-package com.qd.filenetDeleter
+package com.qd.filenet.tools
 
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
-class FileNetDeleterApplicationTests {
+class FileNetToolsApplicationTests {
 
 	@Test
 	fun contextLoads() {

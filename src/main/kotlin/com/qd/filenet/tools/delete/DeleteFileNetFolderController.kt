@@ -1,8 +1,7 @@
-package com.qd.filenetDeleter.controller
+package com.qd.filenet.tools.delete
 
-import com.qd.filenetDeleter.service.FileNetP8Service
-import com.qd.filenetDeleter.util.DeleteRequestPath
-import com.qd.filenetDeleter.util.DeleteRequestSQL
+import com.qd.filenet.tools.delete.requests.DeleteRequestPath
+import com.qd.filenet.tools.delete.requests.DeleteRequestSQL
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -12,17 +11,17 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/delete")
 class DeleteFileNetFolderController(
-    private val fileNetP8Service: FileNetP8Service
+    private val fileNetService: FileNetService
 ) {
     @PostMapping
     fun deleteFolderRecursive(
         @RequestBody deleteRequestPath: DeleteRequestPath
     ) {
-        fileNetP8Service.deleteFileNetFolder(deleteRequestPath)
+        fileNetService.deleteFileNetFolder(deleteRequestPath)
     }
 
     @PostMapping("/sql")
     fun deleteFolderRecursiveFromSearch(@RequestBody deleteRequestSQL: DeleteRequestSQL) {
-        fileNetP8Service.deleteFileNetFolderViaSearch(deleteRequestSQL)
+        fileNetService.deleteFileNetFolderViaSearch(deleteRequestSQL)
     }
 }

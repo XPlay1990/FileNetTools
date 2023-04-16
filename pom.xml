@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.qd</groupId>
-    <artifactId>FileNetDeleter</artifactId>
+    <artifactId>FileNetTools</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>FileNetDeleter</name>
-    <description>Recursive deleter for FileNet</description>
+    <name>FileNetTools</name>
+    <description>API Tools for FileNet</description>
 
     <properties>
         <java.version>17</java.version>
